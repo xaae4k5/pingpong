@@ -1,133 +1,122 @@
 from pygame import *
-from random import choice
+from random import choice, randint
+
+window = display.set_mode((700, 500))
+display.set_caption('Змейка')
 
 class GameSprite(sprite.Sprite):
-    def __init__(self, img, x,y, w,h, speed):
+    def __init__(self, img, x, y, w, h):
         super().__init__()
-        self.image = transform.scale(image.load(img),(w,h))
+        self.image = transform.scale(image.load(img), (w,h))
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.speed = speed
     def reset(self):
-        window.blit(self.image,(self.rect.x, self.rect.y))
-    def collidepoint(self, x,y):
-       return self.rect.collidepoint(x,y)
+        window.blit(self.image, (self.rect.x, self.rect.y))
 
-class Player1(GameSprite):
+class Snake(GameSprite):
+    def __init__(self, img, x, y, w, h, t):
+        super().__init__(img, x, y, w, h)
+        # 0 - голова, 1 - тело, 2 - хвост
+        self.type = t
+        self.speed = 25
+        self.direction = "0"
+        self.cur_image = self.image
+        self.wait = 1
+
     def update(self):
+        if self.direction == 'l':
+            self.rect.x -= self.speed
+        elif self.direction == 'r':
+            self.rect.x += self.speed
+        elif self.direction == 'u':
+            self.rect.y -= self.speed
+        elif self.direction == 'd':
+            self.rect.y += self.speed    
+
         keys = key.get_pressed()
-        if keys[K_w] and self.rect.y>10:
-            self.rect.y-=self.speed
-        if keys[K_s] and self.rect.y<450-10- self.rect.width:
-            self.rect.y+=self.speed
-    
-class Player2(GameSprite):
-    def update(self):
-        keys = key.get_pressed()
-        if keys[K_UP] and self.rect.y>10:
-            self.rect.y-=self.speed
-        if keys[K_DOWN] and self.rect.y<450-10- self.rect.width:
-            self.rect.y+=self.speed
+        if keys[K_LEFT] and self.direction!='r':
+            self.direction = 'l'
+            self.image = transform.rotate(self.cur_image, -90)
+        elif keys[K_RIGHT] and self.direction!='l':
+            self.direction = 'r'
+            self.image = transform.rotate(self.cur_image, 90)
+        elif keys[K_UP] and self.direction!='d':
+            self.direction = 'u'
+            self.image = transform.rotate(self.cur_image, 180)
+        elif keys[K_DOWN] and self.direction!='u':
+            self.direction = 'd'
+            self.image = transform.rotate(self.cur_image, 0)
 
-class Ball(GameSprite):
-    def __init__(self, img, x,y, w,h, speed):
-        super().__init__(img, x,y, w,h, speed)
-        self.direct = [0,0]
+    def set_direct(self):
+        if self.direction == 'l':
+            self.image = transform.rotate(self.cur_image, -90)
+        elif self.direction == 'r':
+            self.image = transform.rotate(self.cur_image, 90)
+        elif self.direction == 'u':
+            self.image = transform.rotate(self.cur_image, 180)
+        elif self.direction == 'd':
+            self.image = transform.rotate(self.cur_image, 0)
 
-    def update(self):
-        global score_l, score_r
-        self.rect.x += self.speed*self.direct[0]
-        self.rect.y += self.speed*self.direct[1]
-        if self.rect.y <=0 or self.rect.y>=500-self.rect.height:
-            self.direct[1] *= -1
-        #if self.rect.x <=0 or self.rect.x>=700-self.rect.height:
-            #self.direct[0] *= -1
-        if self.rect.colliderect(player1) or self.rect.colliderect(player2):
-            self.direct[0] *= -1
-        if self.rect.x <=0:
-            score_r += 1
-            self.start()
-        if self.rect.x>=700-self.rect.width:
-            score_l += 1
-            self.start()
+    def eat(self, food):
+        global speed
+        speed +=1
+        food.position()
 
 
-    def start(self):
-        self.rect.x = 325
-        self.rect.y = 225
-        ball.direct[0] = choice([-1,1])
-        ball.direct[1] = choice([-1,1])
 
-window = display.set_mode((700,500))
-display.set_caption('Пинг Понг')
-background = transform.scale(image.load('fon.jpg'), (700,500))
+class Food(GameSprite):
+    def __init__(self, imgs, x,y, w,h):
+        super().__init__(imgs[0], x,y, w,h)
+        self.costumes = []
+        self.costumes.append(self.image)
+        for i in range(len(imgs)-1):
+            self.image = transform.scale(image.load(imgs[i+1]),(w,h))
+            self.costumes.append(self.image)
 
-mixer.init()
-mixer.music.load('gta.mp3')
-mixer.music.play()
+    def set_costume(self, n):
+        self.image = self.costumes[n]
 
-player1 = Player1('obz.png', 50,250,68, 100, 10)
-player2 = Player2('obz2.png', 600,215,68, 100, 10)
-ball = Ball('ball.png', 350-25, 250-25, 50,50,5)
-ball.direct[0] = choice([-1,1])
-ball.direct[1] = choice([-1,1])
+    def rand_costume(self):
+        self.image = choice(self.costumes)
 
-btn = GameSprite('play.png', (700-137)/2, (500-72)/2, 137, 72, 0)
+    def position(self):
+        self.rect.x = randint(0, 700-self.rect.width)
+        self.rect.y = randint(0, 500-self.rect.height)
+        self.rand_costume()
 
-font.init()
-font_1 = font.SysFont('Arial', 36)
-win = ''
+
+
+
+head = Snake('1.png', 350, 250, 25,25, 0)
+tail = Snake('3.png', 335, 225, 25,25, 0)
+snake = [head,tail]
+food = Food(['4.png', '5.png', '6.png', '7.png'],
+             -100, -100, 25, 25)
+food.position()
 
 game = True
-score_r = 0
-score_l = 0
-rule = 3
 clock = time.Clock()
-FPS = 40
-menu = True
-finish = True
+fps = 10
+speed = 1
 
 while game:
-    window.blit(background,(0,0))
     for e in event.get():
         if e.type == QUIT:
             game = False
-    if menu:
-        window.blit(background, (0,0))
-        btn.reset()
-        pressed = mouse.get_pressed()
-        pos = mouse.get_pos()
-        if pressed [0]:
-            if btn.rect.collidepoint(pos[0], pos[1]):
-                menu = False
-                finish = False
-                win = ''
-                score_l = 0
-                score_r = 0
-        if win != '':
-            winner = font_1.render('Победил ' +win+'!', 1, (255,255,255))
-            window.blit(winner, (150,350))
-            scr = font_1.render('со счетом' +str(max(score_l, score_r)) +':'+str(min(score_l, score_r)), 1, (255,255,255))
-            window.blit(scr, (250,400))
-    if not finish:
-        window.blit(background, (0,0))
-        player1.update()
-        player1.reset()
-        player2.update()
-        player2.reset()
-        ball.update()
-        ball.reset()
-        scr_left = font_1.render(str(score_l), 1, (255, 255, 255))
-        window.blit(scr_left, (10,10))
-        if score_l>=3:
-            win = 'левый игрок'
-            menu = True
-            finish = True
-        if score_r>=3:
-            win = 'правый игрок'
-            menu = True
-            finish = True
 
-    clock.tick(FPS)
+    window.fill((180,200,180))
+    head.update()
+    head.reset()
+    food.reset()
+    if head.rect.colliderect(food):
+        head.eat(food)
+    for e in range(1, len(snake)):
+        snake[e].reset()
+        snake[e].direction = snake[e-1].direction
+        snake[e].rect.x = snake[e-1].rect.x
+        snake[e].rect.y = snake[e-1].rect.y
+        snake[e].set_direct()
+
+    clock.tick(fps)
     display.update()
